@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-def grafico(df, dg):
+def grafico(df, dg, fig, desejado):
     fig.add_trace(go.Scatter(x=df['Mês'], y=df['Total'],
                             mode='lines+markers',
                             name='Investimento',
@@ -10,9 +10,9 @@ def grafico(df, dg):
                             marker=dict(size=6)))
 
     fig.add_trace(go.Scatter(
-        x=dg['Mês'], y=dg['Aporte Mensal'],
+        x=df['Mês'], y=dg['Sem Investir'],
         mode='lines+markers',
-        name='Aporte Mensal',
+        name='Sem investir',
         line=dict(color='orange', width=2, dash='dot'),
         marker=dict(size=5)
     ))
@@ -25,8 +25,8 @@ def grafico(df, dg):
                     text=f"R$ {df['Total'].iloc[-1]:,.2f}",
                     showarrow=True, arrowhead=1)
 
-    fig.add_annotation(x=dg['Mês'].iloc[-1], y=dg['Aporte Mensal'].iloc[-1],
-                    text=f"R$ {dg['Aporte Mensal'].iloc[-1]:,.2f}",
+    fig.add_annotation(x=df['Mês'].iloc[-1], y=dg['Sem Investir'].iloc[-1],
+                    text=f"R$ {dg['Sem Investir'].iloc[-1]:,.2f}",
                     showarrow=True, arrowhead=1)
 
     fig.update_layout(title='Projeção de Investimento',
@@ -37,58 +37,64 @@ def grafico(df, dg):
     
     st.plotly_chart(fig, use_container_width=True)
 
-st.set_page_config(page_title="Simulador de Investimento", layout="centered")
+def botoes(df, fig, investimento, sem_investimento, lucros, desejado):
+    st.success(f"📈 Patrimônio acumulado: R$ {investimento:,.2f}")
 
-st.title("💰 Simulador de Investimento com Juros Compostos")
+    st.dataframe(df.style.format({"Investimento": "R$ {:,.2f}", "Lucro": "R$ {:,.2f}", "Total": "R$ {:,.2f}", "Aporte Mensal": "R$ {:,.2f}"}))
 
-desejado = st.number_input("🎯 Valor desejado (meta)", min_value=0.0, step=100.0)
-patrimonio = st.number_input("📈 Patrimônio atual (R$)", min_value=0.0, step=100.0)
-salario = st.number_input("💼 Seu salário atual (R$)", min_value=0.0, step=100.0)
-projecao = st.slider("⏳ Meses para projeção", 1, 240, 60)
+    st.success(f"💵 Lucro de R$ {sum(lucros):,.2f}")
+    st.warning(f"🥺 Sem investimento você teria R$ {sem_investimento:,.2f}")
 
-sem_investimento = patrimonio
-investimento = patrimonio
-aumento = 12
-x, y = [], []
-a, b = [], []
-total, lucros = [], []
+    st.download_button("📥 Baixar gráfico", fig.to_image(format="png"), file_name="investimento.png")
 
-for i in range(projecao):
-    if i > aumento:
-        salario += salario * 0.05
-        aumento += 12
+    if investimento >= desejado:
+        st.balloons()
+        st.info("Parabéns! Você atingiu sua meta. 🎉")
+    else:
+        st.warning("Você ainda não atingiu a meta. Continue investindo!")
 
-    investimento += salario * 0.3
-    
-    x.append(i + 1)
-    y.append(investimento)
-    a.append(i + 1)
+def main():    
+    st.set_page_config(page_title="Simulador de Investimento", layout="centered")
 
-    lucro = investimento * 0.01
-    investimento += lucro
-    sem_investimento += salario * 0.3
-    
-    b.append(sem_investimento)
-    total.append(investimento)
-    lucros.append(lucro)
+    st.title("💰 Simulador de Investimento com Juros Compostos")
 
-df = pd.DataFrame({'Mês': x, 'Investimento': y, 'Lucro': lucros, 'Total': total})
-dg = pd.DataFrame({'Mês': a, 'Aporte Mensal': b})
+    desejado = st.number_input("🎯 Valor desejado (meta)", min_value=0.0, step=100.0)
+    patrimonio = st.number_input("📈 Patrimônio atual (R$)", min_value=0.0, step=100.0)
+    salario = st.number_input("💼 Seu salário atual (R$)", min_value=0.0, step=100.0)
+    projecao = st.slider("⏳ Meses para projeção", 1, 240, 60)
 
-fig = go.Figure()
-grafico(df, dg)
+    sem_investimento = patrimonio
+    investimento = patrimonio
+    aumento = 12
+    meses, y = [], []
+    b = []
+    total, lucros = [], []
 
-st.success(f"📈 Patrimônio acumulado: R$ {investimento:,.2f}")
+    for i in range(projecao):
+        if i > aumento:
+            salario += salario * 0.05
+            aumento += 12
 
-st.dataframe(df.style.format({"Investimento": "R$ {:,.2f}", "Lucro": "R$ {:,.2f}", "Total": "R$ {:,.2f}"}))
+        investimento += salario * 0.3
+        
+        meses.append(i + 1)
+        y.append(investimento)
 
-st.success(f"💵 Lucro de R$ {sum(lucros):,.2f}")
-st.warning(f"🥺 Sem investimento você teria R$ {sem_investimento:,.2f}")
+        lucro = investimento * 0.01
+        investimento += lucro
+        sem_investimento += salario * 0.3
+        
+        b.append(sem_investimento)
+        total.append(investimento)
+        lucros.append(lucro)
 
-st.download_button("📥 Baixar gráfico", fig.to_image(format="png"), file_name="investimento.png")
+    df = pd.DataFrame({'Mês': meses, 'Investimento': y, 'Lucro': lucros, 'Total': total})
+    dg = pd.DataFrame({'Sem Investir' : b})
 
-if investimento >= desejado:
-    st.balloons()
-    st.info("Parabéns! Você atingiu sua meta. 🎉")
-else:
-    st.warning("Você ainda não atingiu a meta. Continue investindo!")
+    fig = go.Figure()
+
+    grafico(df, dg, fig, desejado)
+    botoes(df, fig, investimento, sem_investimento, lucros, desejado)
+
+if __name__ == '__main__':
+    main()
